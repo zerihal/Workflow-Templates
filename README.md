@@ -1,16 +1,9 @@
 # Workflow-Templates
 Collection of useful workflow templates
 
-To call a template, create a new workflow template with the following (replace csproj_path value with the csproj file to be built and published as a nuget package and dotnet-pack-template.yml with the workflow template to use if different):
+To call a template, create a new workflow template with the following:
+- Replace dotnet-release-pack-template.yml with others from this repo if applicable
+- Replace csproj_path value with that of the csproj file to build and package
+- Change dotnet_version value if different
 
-name: MyTemplateName
-
-on:
-  workflow_dispatch:
-
-jobs:
-  call-template:
-    uses: zerihal/github-actions-templates/.github/workflow-templates/dotnet-pack-template.yml@main
-    with:
-      csproj_path: './MyLibrary/MyLibrary.csproj'
-      dotnet_version: '9.0.x'
+![Example](Images/WF_template.png)
