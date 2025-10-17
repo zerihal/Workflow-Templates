@@ -1,0 +1,72 @@
+name: Build and Pack .NET Project
+
+on:
+  workflow_call:
+    inputs:
+      csproj_path:
+        required: true
+        type: string
+      dotnet_version:
+        required: false
+        default: '9.0.x'
+
+jobs:
+  build-and-pack:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet_version }}
+
+    - name: Restore dependencies
+      run: dotnet restore "${{ inputs.csproj_path }}"
+
+    - name: Build
+      run: dotnet build "${{ inputs.csproj_path }}" --configuration Release --no-restore
+
+    - name: Test
+      run: dotnet test "${{ inputs.csproj_path }}" --no-build --verbosity normal
+
+    - name: Increment package version
+      id: bump
+      run: |
+        csproj_file="${{ inputs.csproj_path }}"
+        echo "Found project file: $csproj_file"
+
+        version_line=$(grep -m1 "<Version>" "$csproj_file" || echo "")
+        if [ -z "$version_line" ]; then
+          current_version="1.0.0"
+          sed -i '/<PropertyGroup>/a <Version>1.0.0</Version>' "$csproj_file"
+        else
+          current_version=$(echo "$version_line" | sed -E 's/.*<Version>(.*)<\/Version>.*/\1/')
+        fi
+
+        IFS='.' read -r major minor patch <<< "$current_version"
+        new_version="$major.$minor.$((patch+1))"
+        sed -i "s|<Version>.*</Version>|<Version>$new_version</Version>|" "$csproj_file"
+
+        echo "new_version=$new_version" >> $GITHUB_OUTPUT
+        echo "csproj_file=$csproj_file" >> $GITHUB_OUTPUT
+
+    - name: Commit version bump
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add "${{ steps.bump.outputs.csproj_file }}"
+        git diff --cached --quiet || git commit -m "Bump package version to ${{ steps.bump.outputs.new_version }}"
+        git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
+
+    - name: Pack nuget package
+      run: dotnet pack "${{ inputs.csproj_path }}" --configuration Release -o ./artifacts
+
+    - name: Publish to GitHub Packages
+      run: |
+        dotnet nuget push "./artifacts/*.nupkg" \
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+          --api-key ${{ secrets.GITHUB_TOKEN }}
