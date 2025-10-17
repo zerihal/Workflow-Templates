@@ -7,3 +7,8 @@ To call a template, create a new workflow template with the following:
 - Change dotnet_version value if different
 
 ![Example](Images/WF_template.png)
+
+---
+
+## Templates:
+- Dotnet-release-pack-template: Performs release build and unit tests on a .NET project, then incrementing version number and creating a nuget package your GitHub repo. Note: the <Version> element must be present within the csproj file for this to be incremented.
